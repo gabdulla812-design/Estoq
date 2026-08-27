@@ -304,7 +304,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         child: ListView.separated(
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                           itemCount: _items.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          separatorBuilder: (_, _) => const Divider(height: 1),
                           itemBuilder: (context, index) {
                             final item = _items[index];
                             return ListTile(
