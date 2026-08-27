@@ -2,31 +2,34 @@
 
 Рабочая ветка: `skladscan-clean`.
 
-## Фактическое состояние на старте
+## Фактическое состояние
 
 - [x] Репозиторий: `gabdulla812-design/Estoq`.
 - [x] Ветка `skladscan-clean` существует.
-- [x] Уже заменён `lib/main.dart` на черновой русский интерфейс «СкладСкан» с ручным добавлением позиции и суммированием одинакового штрихкода.
-- [x] В `pubspec.yaml` удалена часть старых зависимостей Estoq и добавлены современные зависимости-заготовки.
-- [x] В Android Manifest добавлено разрешение камеры и название «СкладСкан».
-- [ ] Android build-конфигурация всё ещё старая: legacy `apply from`, AGP 7.1.2, Kotlin 1.6.10, Gradle 7.4, `com.example.estoq`.
+- [x] Новый код приложения отделён от старой логики Estoq; неиспользуемые Dart-файлы Estoq удалены.
+- [x] Android переведён на современный Flutter Plugin DSL.
+- [x] Gradle Wrapper восстановлен официальными файлами Gradle 8.14.3.
+- [x] Android Gradle Plugin 8.11.1, Kotlin 2.2.20, Java/Kotlin target 17.
+- [x] `applicationId` и `namespace`: `ru.skladscan.app`.
+- [x] Название Android-приложения: «СкладСкан».
+- [x] Разрешение камеры объявлено; лишние Android-разрешения не добавлены.
 - [ ] Постоянное локальное хранение не реализовано.
 - [ ] Камерное сканирование не реализовано.
 - [ ] CSV-экспорт не реализован.
-- [ ] Автоматические тесты и CI отсутствуют.
+- [ ] Полная автоматическая проверка качества ещё не настроена.
 
-## Этап 1. Чистая современная основа Flutter
+## Этап 1. Чистая современная основа Flutter — ГОТОВО
 
 Критерии готовности:
 
-- [ ] Современный Flutter Plugin DSL для Android.
-- [ ] Совместимые Gradle / Android Gradle Plugin / Kotlin / JDK-настройки.
-- [ ] Уникальный Android `applicationId`: `ru.skladscan.app`.
-- [ ] Android `namespace`: `ru.skladscan.app`.
+- [x] Современный Flutter Plugin DSL для Android.
+- [x] Совместимые Gradle / Android Gradle Plugin / Kotlin / JDK-настройки.
+- [x] Уникальный Android `applicationId`: `ru.skladscan.app`.
+- [x] Android `namespace`: `ru.skladscan.app`.
 - [x] Название приложения «СкладСкан».
 - [x] Русский интерфейс.
 - [x] Только необходимое разрешение камеры.
-- [ ] Удалены оставшиеся ненужные файлы/зависимости Estoq, влияющие на новую версию.
+- [x] Удалены оставшиеся ненужные Dart-файлы Estoq; новые зависимости не используют legacy Firebase/ML Vision.
 
 ## Этап 2. Инвентаризации и локальное хранение
 
