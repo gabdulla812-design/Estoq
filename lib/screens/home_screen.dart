@@ -33,37 +33,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _createInventory() async {
-    final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Новая инвентаризация'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            labelText: 'Название',
-            hintText: 'Например: Склад №1',
-          ),
-          onSubmitted: (value) => Navigator.pop(context, value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Создать'),
-          ),
-        ],
-      ),
+      builder: (_) => const _CreateInventoryDialog(),
     );
-    controller.dispose();
-    if (name == null || name.trim().isEmpty) return;
+    if (!mounted || name == null || name.trim().isEmpty) return;
 
-    final inventory = await widget.repository.createInventory(name);
+    final inventory = await widget.repository.createInventory(name.trim());
     if (!mounted) return;
     await Navigator.push(
       context,
@@ -74,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-    await _reload();
+    if (mounted) await _reload();
   }
 
   Future<void> _deleteInventory(Inventory inventory) async {
@@ -101,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
         false;
     if (!confirmed) return;
     await widget.repository.deleteInventory(inventory.id!);
-    await _reload();
+    if (mounted) await _reload();
   }
 
   String _formatDate(DateTime value) {
@@ -169,13 +145,60 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             );
-                            await _reload();
+                            if (mounted) await _reload();
                           },
                         ),
                       );
                     },
                   ),
                 ),
+    );
+  }
+}
+
+class _CreateInventoryDialog extends StatefulWidget {
+  const _CreateInventoryDialog();
+
+  @override
+  State<_CreateInventoryDialog> createState() => _CreateInventoryDialogState();
+}
+
+class _CreateInventoryDialogState extends State<_CreateInventoryDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (value.isEmpty) return;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Новая инвентаризация'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(
+          labelText: 'Название',
+          hintText: 'Например: Склад №1',
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Создать')),
+      ],
     );
   }
 }
