@@ -136,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                     itemCount: _inventories.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final inventory = _inventories[index];
                       return Card(
