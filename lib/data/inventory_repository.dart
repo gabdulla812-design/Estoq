@@ -1,45 +1,66 @@
 import 'package:path/path.dart' as p;
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite/sqflite.dart' as sqflite;
 
 import '../models/inventory.dart';
 
 class InventoryRepository {
-  InventoryRepository._();
+  InventoryRepository._({
+    sqflite.DatabaseFactory? databaseFactory,
+    String? databasePath,
+  })  : _databaseFactory = databaseFactory,
+        _databasePath = databasePath;
 
   static final InventoryRepository instance = InventoryRepository._();
 
-  Database? _database;
+  factory InventoryRepository.testing({
+    required sqflite.DatabaseFactory databaseFactory,
+    required String databasePath,
+  }) {
+    return InventoryRepository._(
+      databaseFactory: databaseFactory,
+      databasePath: databasePath,
+    );
+  }
 
-  Future<Database> get database async {
+  final sqflite.DatabaseFactory? _databaseFactory;
+  final String? _databasePath;
+  sqflite.Database? _database;
+
+  Future<sqflite.Database> get database async {
     if (_database != null) return _database!;
-    final databasesPath = await getDatabasesPath();
-    final dbPath = p.join(databasesPath, 'skladscan.db');
-    _database = await openDatabase(
+
+    final factory = _databaseFactory ?? sqflite.databaseFactory;
+    final dbPath = _databasePath ??
+        p.join(await sqflite.getDatabasesPath(), 'skladscan.db');
+
+    _database = await factory.openDatabase(
       dbPath,
-      version: 1,
-      onConfigure: (db) async {
-        await db.execute('PRAGMA foreign_keys = ON');
-      },
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE inventories(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            created_at TEXT NOT NULL
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE inventory_items(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            inventory_id INTEGER NOT NULL,
-            barcode TEXT NOT NULL,
-            name TEXT,
-            quantity INTEGER NOT NULL CHECK(quantity > 0),
-            FOREIGN KEY(inventory_id) REFERENCES inventories(id) ON DELETE CASCADE,
-            UNIQUE(inventory_id, barcode)
-          )
-        ''');
-      },
+      options: sqflite.OpenDatabaseOptions(
+        version: 1,
+        onConfigure: (db) async {
+          await db.execute('PRAGMA foreign_keys = ON');
+        },
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE inventories(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              created_at TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE inventory_items(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              inventory_id INTEGER NOT NULL,
+              barcode TEXT NOT NULL,
+              name TEXT,
+              quantity INTEGER NOT NULL CHECK(quantity > 0),
+              FOREIGN KEY(inventory_id) REFERENCES inventories(id) ON DELETE CASCADE,
+              UNIQUE(inventory_id, barcode)
+            )
+          ''');
+        },
+      ),
     );
     return _database!;
   }
@@ -138,12 +159,14 @@ class InventoryRepository {
     if (item.quantity <= 0) {
       throw ArgumentError('Количество должно быть больше нуля.');
     }
+
+    final cleanName = item.name?.trim();
     final db = await database;
     await db.update(
       'inventory_items',
       {
         'barcode': item.barcode.trim(),
-        'name': item.name?.trim().isEmpty == true ? null : item.name?.trim(),
+        'name': cleanName == null || cleanName.isEmpty ? null : cleanName,
         'quantity': item.quantity,
       },
       where: 'id = ?',
