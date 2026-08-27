@@ -71,68 +71,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _addItem({String? initialBarcode}) async {
-    final barcodeController = TextEditingController(text: initialBarcode ?? '');
-    final nameController = TextEditingController();
-    final quantityController = TextEditingController(text: '1');
-
     final result = await showDialog<_ItemDraft>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Добавить позицию'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: barcodeController,
-                autofocus: initialBarcode == null,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Штрихкод *'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: nameController,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(labelText: 'Название товара'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: quantityController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Количество *'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final quantity = int.tryParse(quantityController.text.trim());
-              final barcode = barcodeController.text.trim();
-              if (barcode.isEmpty || quantity == null || quantity <= 0) return;
-              Navigator.pop(
-                context,
-                _ItemDraft(
-                  barcode: barcode,
-                  name: nameController.text.trim(),
-                  quantity: quantity,
-                ),
-              );
-            },
-            child: const Text('Добавить'),
-          ),
-        ],
-      ),
+      builder: (_) => _ItemDialog(initialBarcode: initialBarcode),
     );
-
-    barcodeController.dispose();
-    nameController.dispose();
-    quantityController.dispose();
-    if (result == null) return;
+    if (!mounted || result == null) return;
 
     await widget.repository.addOrIncrementItem(
       inventoryId: _inventoryId,
@@ -140,66 +83,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
       name: result.name,
       quantity: result.quantity,
     );
-    await _reload();
+    if (mounted) await _reload();
   }
 
   Future<void> _editItem(InventoryItem item) async {
-    final nameController = TextEditingController(text: item.name ?? '');
-    final quantityController = TextEditingController(text: '${item.quantity}');
-
     final result = await showDialog<_ItemDraft>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Редактировать позицию'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Штрихкод: ${item.barcode}'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Название товара'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: quantityController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Количество'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final quantity = int.tryParse(quantityController.text.trim());
-              if (quantity == null || quantity <= 0) return;
-              Navigator.pop(
-                context,
-                _ItemDraft(
-                  barcode: item.barcode,
-                  name: nameController.text.trim(),
-                  quantity: quantity,
-                ),
-              );
-            },
-            child: const Text('Сохранить'),
-          ),
-        ],
+      builder: (_) => _ItemDialog(
+        item: item,
+        initialBarcode: item.barcode,
       ),
     );
-
-    nameController.dispose();
-    quantityController.dispose();
-    if (result == null) return;
+    if (!mounted || result == null) return;
 
     await widget.repository.updateItem(
       item.copyWith(name: result.name, quantity: result.quantity),
     );
-    await _reload();
+    if (mounted) await _reload();
   }
 
   Future<void> _deleteItem(InventoryItem item) async {
@@ -224,7 +124,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         false;
     if (!confirmed) return;
     await widget.repository.deleteItem(item.id!);
-    await _reload();
+    if (mounted) await _reload();
   }
 
   @override
@@ -341,6 +241,101 @@ class _ItemDraft {
   final String barcode;
   final String name;
   final int quantity;
+}
+
+class _ItemDialog extends StatefulWidget {
+  const _ItemDialog({this.item, this.initialBarcode});
+
+  final InventoryItem? item;
+  final String? initialBarcode;
+
+  bool get editing => item != null;
+
+  @override
+  State<_ItemDialog> createState() => _ItemDialogState();
+}
+
+class _ItemDialogState extends State<_ItemDialog> {
+  late final TextEditingController _barcodeController;
+  late final TextEditingController _nameController;
+  late final TextEditingController _quantityController;
+
+  @override
+  void initState() {
+    super.initState();
+    _barcodeController = TextEditingController(
+      text: widget.initialBarcode ?? widget.item?.barcode ?? '',
+    );
+    _nameController = TextEditingController(text: widget.item?.name ?? '');
+    _quantityController = TextEditingController(
+      text: widget.item == null ? '1' : '${widget.item!.quantity}',
+    );
+  }
+
+  @override
+  void dispose() {
+    _barcodeController.dispose();
+    _nameController.dispose();
+    _quantityController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final barcode = _barcodeController.text.trim();
+    final quantity = int.tryParse(_quantityController.text.trim());
+    if (barcode.isEmpty || quantity == null || quantity <= 0) return;
+
+    Navigator.of(context).pop(
+      _ItemDraft(
+        barcode: barcode,
+        name: _nameController.text.trim(),
+        quantity: quantity,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.editing ? 'Редактировать позицию' : 'Добавить позицию'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _barcodeController,
+              enabled: !widget.editing,
+              autofocus: !widget.editing && widget.initialBarcode == null,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Штрихкод *'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _nameController,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(labelText: 'Название товара'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _quantityController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Количество *'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(widget.editing ? 'Сохранить' : 'Добавить'),
+        ),
+      ],
+    );
+  }
 }
 
 class _SummaryCard extends StatelessWidget {
