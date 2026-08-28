@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/inventory_repository.dart';
 import '../models/inventory.dart';
 import '../services/csv_export_service.dart';
+import '../utils/barcode_normalizer.dart';
 import 'scanner_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -44,11 +45,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _scanItem() async {
-    final barcode = await Navigator.push<String>(
+    final scannedValue = await Navigator.push<String>(
       context,
       MaterialPageRoute(builder: (_) => const ScannerScreen()),
     );
-    if (!mounted || barcode == null || barcode.isEmpty) return;
+    if (!mounted || scannedValue == null || scannedValue.isEmpty) return;
+
+    final barcode = BarcodeNormalizer.normalize(scannedValue);
     await _addItem(initialBarcode: barcode);
   }
 
