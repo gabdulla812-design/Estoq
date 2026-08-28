@@ -25,11 +25,9 @@ class ScannerScreen extends StatefulWidget {
 
 class _ScannerScreenState extends State<ScannerScreen> {
   final MobileScannerController _controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.normal,
+    detectionSpeed: DetectionSpeed.noDuplicates,
     formats: const [BarcodeFormat.all],
   );
-
-  final Map<String, DateTime> _lastAcceptedAt = <String, DateTime>{};
 
   bool _saving = false;
   bool _changed = false;
@@ -38,8 +36,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
   late int _totalQuantity;
   String? _lastBarcode;
   String? _message;
-
-  static const Duration _sameCodeCooldown = Duration(milliseconds: 1200);
 
   @override
   void initState() {
@@ -62,13 +58,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
     if (rawValue == null) return;
 
     final canonicalBarcode = BarcodeNormalizer.normalize(rawValue);
-    final now = DateTime.now();
-    final previous = _lastAcceptedAt[canonicalBarcode];
-    if (previous != null && now.difference(previous) < _sameCodeCooldown) {
-      return;
-    }
-
-    _lastAcceptedAt[canonicalBarcode] = now;
     _saving = true;
 
     try {
@@ -197,7 +186,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                       const SizedBox(height: 6),
                       Text(
                         _message ??
-                            'Каждый успешный скан сразу добавляет 1 единицу. Можно сканировать подряд.',
+                            'Один товар учитывается один раз, пока его код находится в кадре. Уберите товар и наведите следующий.',
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: Colors.white70),
                       ),
