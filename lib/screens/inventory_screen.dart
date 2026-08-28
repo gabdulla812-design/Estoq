@@ -256,39 +256,35 @@ class _ItemDialog extends StatefulWidget {
 }
 
 class _ItemDialogState extends State<_ItemDialog> {
-  late final TextEditingController _barcodeController;
-  late final TextEditingController _nameController;
-  late final TextEditingController _quantityController;
+  late String _barcode;
+  late String _name;
+  late String _quantity;
+  bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
-    _barcodeController = TextEditingController(
-      text: widget.initialBarcode ?? widget.item?.barcode ?? '',
-    );
-    _nameController = TextEditingController(text: widget.item?.name ?? '');
-    _quantityController = TextEditingController(
-      text: widget.item == null ? '1' : '${widget.item!.quantity}',
-    );
+    _barcode = widget.initialBarcode ?? widget.item?.barcode ?? '';
+    _name = widget.item?.name ?? '';
+    _quantity = widget.item == null ? '1' : '${widget.item!.quantity}';
   }
 
-  @override
-  void dispose() {
-    _barcodeController.dispose();
-    _nameController.dispose();
-    _quantityController.dispose();
-    super.dispose();
-  }
+  Future<void> _submit() async {
+    final barcode = _barcode.trim();
+    final quantity = int.tryParse(_quantity.trim());
+    if (barcode.isEmpty || quantity == null || quantity <= 0 || _submitting) {
+      return;
+    }
 
-  void _submit() {
-    final barcode = _barcodeController.text.trim();
-    final quantity = int.tryParse(_quantityController.text.trim());
-    if (barcode.isEmpty || quantity == null || quantity <= 0) return;
+    setState(() => _submitting = true);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    if (!mounted) return;
 
     Navigator.of(context).pop(
       _ItemDraft(
         barcode: barcode,
-        name: _nameController.text.trim(),
+        name: _name.trim(),
         quantity: quantity,
       ),
     );
@@ -302,35 +298,38 @@ class _ItemDialogState extends State<_ItemDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: _barcodeController,
+            TextFormField(
+              initialValue: _barcode,
               enabled: !widget.editing,
               autofocus: !widget.editing && widget.initialBarcode == null,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'Штрихкод *'),
+              onChanged: (value) => _barcode = value,
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _nameController,
+            TextFormField(
+              initialValue: _name,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(labelText: 'Название товара'),
+              onChanged: (value) => _name = value,
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _quantityController,
+            TextFormField(
+              initialValue: _quantity,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'Количество *'),
+              onChanged: (value) => _quantity = value,
             ),
           ],
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
           child: const Text('Отмена'),
         ),
         FilledButton(
-          onPressed: _submit,
+          onPressed: _submitting ? null : _submit,
           child: Text(widget.editing ? 'Сохранить' : 'Добавить'),
         ),
       ],
