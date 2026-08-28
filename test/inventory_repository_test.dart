@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:skladscan/data/inventory_repository.dart';
+import 'package:skladscan/utils/barcode_normalizer.dart';
 
 void main() {
   sqfliteFfiInit();
@@ -47,6 +48,39 @@ void main() {
     expect(items, hasLength(1));
     expect(items.single.quantity, 5);
     expect(items.single.name, 'Товар');
+  });
+
+  test('GS1 DataMatrix и EAN-13 одного товара суммируются вместе', () async {
+    final inventory = await repository.createInventory('Склад №1');
+
+    await repository.addOrIncrementItem(
+      inventoryId: inventory.id!,
+      barcode: '4607015235401',
+      name: 'Пряники',
+      quantity: 100,
+    );
+    await repository.addOrIncrementItem(
+      inventoryId: inventory.id!,
+      barcode: '0104607015235401215IMmPM93XxxA',
+      quantity: 2,
+    );
+
+    final items = await repository.listItems(inventory.id!);
+    expect(items, hasLength(1));
+    expect(items.single.barcode, '4607015235401');
+    expect(items.single.name, 'Пряники');
+    expect(items.single.quantity, 102);
+  });
+
+  test('нормализует GS1 DataMatrix с идентификатором символики и FNC1', () {
+    expect(
+      BarcodeNormalizer.normalize(']d20104607015235401\u001D21SERIAL123'),
+      '4607015235401',
+    );
+    expect(
+      BarcodeNormalizer.normalize('(01)0460701523540121SERIAL123'),
+      '4607015235401',
+    );
   });
 
   test('изменяет количество и название позиции', () async {
