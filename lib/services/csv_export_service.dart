@@ -19,7 +19,7 @@ class CsvExportService {
     final safeName = _safeFilePart(inventory.name);
     final file = File(p.join(directory.path, 'inventory_${date}_$safeName.csv'));
 
-    final buffer = StringBuffer('\uFEFF');
+    final buffer = StringBuffer();
     buffer.writeln('штрихкод;название;количество');
     for (final item in items) {
       buffer.writeln([
@@ -29,7 +29,10 @@ class CsvExportService {
       ].join(';'));
     }
 
-    await file.writeAsString(buffer.toString(), encoding: utf8, flush: true);
+    // Write the UTF-8 BOM as raw bytes. Some Android spreadsheet apps ignore
+    // charset metadata for CSV files but use these leading bytes to detect UTF-8.
+    final bytes = <int>[0xEF, 0xBB, 0xBF, ...utf8.encode(buffer.toString())];
+    await file.writeAsBytes(bytes, flush: true);
     return file;
   }
 
@@ -43,14 +46,17 @@ class CsvExportService {
         title: 'Экспорт «${inventory.name}»',
         subject: 'Инвентаризация ${inventory.name}',
         text: 'CSV-файл инвентаризации «${inventory.name}».',
-        files: [XFile(file.path, mimeType: 'text/csv')],
+        files: [XFile(file.path, mimeType: 'text/csv; charset=utf-8')],
       ),
     );
   }
 
   String _escape(String value) {
     final escaped = value.replaceAll('"', '""');
-    if (escaped.contains(';') || escaped.contains('"') || escaped.contains('\n') || escaped.contains('\r')) {
+    if (escaped.contains(';') ||
+        escaped.contains('"') ||
+        escaped.contains('\n') ||
+        escaped.contains('\r')) {
       return '"$escaped"';
     }
     return escaped;
