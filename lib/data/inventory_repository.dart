@@ -2,6 +2,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart' as sqflite;
 
 import '../models/inventory.dart';
+import '../utils/barcode_normalizer.dart';
 
 class InventoryRepository {
   InventoryRepository._({
@@ -107,7 +108,7 @@ class InventoryRepository {
     String? name,
     int quantity = 1,
   }) async {
-    final cleanBarcode = barcode.trim();
+    final cleanBarcode = BarcodeNormalizer.normalize(barcode);
     final cleanName = name?.trim();
     if (cleanBarcode.isEmpty) {
       throw ArgumentError('Штрихкод не может быть пустым.');
@@ -161,11 +162,12 @@ class InventoryRepository {
     }
 
     final cleanName = item.name?.trim();
+    final cleanBarcode = BarcodeNormalizer.normalize(item.barcode);
     final db = await database;
     await db.update(
       'inventory_items',
       {
-        'barcode': item.barcode.trim(),
+        'barcode': cleanBarcode,
         'name': cleanName == null || cleanName.isEmpty ? null : cleanName,
         'quantity': item.quantity,
       },
