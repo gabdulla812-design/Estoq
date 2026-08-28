@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../data/inventory_repository.dart';
 import '../models/inventory.dart';
 import '../services/csv_export_service.dart';
-import '../utils/barcode_normalizer.dart';
 import 'scanner_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -28,6 +27,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
   List<InventoryItem> _items = const [];
 
   int get _inventoryId => widget.inventory.id!;
+  int get _totalQuantity =>
+      _items.fold<int>(0, (sum, item) => sum + item.quantity);
 
   @override
   void initState() {
@@ -45,14 +46,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _scanItem() async {
-    final scannedValue = await Navigator.push<String>(
+    final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => const ScannerScreen()),
+      MaterialPageRoute(
+        builder: (_) => ScannerScreen(
+          repository: widget.repository,
+          inventoryId: _inventoryId,
+          initialPositionCount: _items.length,
+          initialTotalQuantity: _totalQuantity,
+        ),
+      ),
     );
-    if (!mounted || scannedValue == null || scannedValue.isEmpty) return;
-
-    final barcode = BarcodeNormalizer.normalize(scannedValue);
-    await _addItem(initialBarcode: barcode);
+    if (!mounted) return;
+    if (changed == true) await _reload();
   }
 
   Future<void> _export() async {
@@ -132,14 +138,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalQuantity = _items.fold<int>(0, (sum, item) => sum + item.quantity);
-
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.inventory.name),
         actions: [
           IconButton(
-            tooltip: 'Сканировать',
+            tooltip: 'Быстрое сканирование',
             onPressed: _scanItem,
             icon: const Icon(Icons.qr_code_scanner),
           ),
@@ -171,9 +175,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _SummaryCard(label: 'Единиц', value: '$totalQuantity'),
+                  child: _SummaryCard(label: 'Единиц', value: '$_totalQuantity'),
                 ),
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _scanItem,
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Начать быстрое сканирование'),
+              ),
             ),
           ),
           Expanded(
@@ -196,7 +211,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               FilledButton.icon(
                                 onPressed: _scanItem,
                                 icon: const Icon(Icons.qr_code_scanner),
-                                label: const Text('Сканировать штрихкод'),
+                                label: const Text('Начать сканирование'),
                               ),
                             ],
                           ),
