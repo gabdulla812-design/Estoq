@@ -89,7 +89,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('СкладСкан')),
+      appBar: AppBar(
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('СкладСкан'),
+            Text(
+              'Версия 0.1.1 · сборка 2',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createInventory,
         icon: const Icon(Icons.add),
@@ -164,17 +175,17 @@ class _CreateInventoryDialog extends StatefulWidget {
 }
 
 class _CreateInventoryDialogState extends State<_CreateInventoryDialog> {
-  final TextEditingController _controller = TextEditingController();
+  String _name = '';
+  bool _submitting = false;
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  Future<void> _submit() async {
+    final value = _name.trim();
+    if (value.isEmpty || _submitting) return;
 
-  void _submit() {
-    final value = _controller.text.trim();
-    if (value.isEmpty) return;
+    setState(() => _submitting = true);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    if (!mounted) return;
     Navigator.of(context).pop(value);
   }
 
@@ -182,22 +193,24 @@ class _CreateInventoryDialogState extends State<_CreateInventoryDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Новая инвентаризация'),
-      content: TextField(
-        controller: _controller,
+      content: TextFormField(
         autofocus: true,
         textCapitalization: TextCapitalization.sentences,
         decoration: const InputDecoration(
           labelText: 'Название',
           hintText: 'Например: Склад №1',
         ),
-        onSubmitted: (_) => _submit(),
+        onChanged: (value) => _name = value,
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
           child: const Text('Отмена'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Создать')),
+        FilledButton(
+          onPressed: _submitting ? null : _submit,
+          child: const Text('Создать'),
+        ),
       ],
     );
   }
