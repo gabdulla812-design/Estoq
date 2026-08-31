@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -24,17 +26,32 @@ class ScannerScreen extends StatefulWidget {
 }
 
 class _ScannerScreenState extends State<ScannerScreen> {
+  static const _candidateHold = Duration(milliseconds: 650);
+
   final MobileScannerController _controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.noDuplicates,
-    formats: const [BarcodeFormat.all],
+    detectionSpeed: DetectionSpeed.normal,
+    formats: const [
+      BarcodeFormat.code128,
+      BarcodeFormat.code39,
+      BarcodeFormat.code93,
+      BarcodeFormat.codabar,
+      BarcodeFormat.dataMatrix,
+      BarcodeFormat.ean13,
+      BarcodeFormat.ean8,
+      BarcodeFormat.itf,
+      BarcodeFormat.upcA,
+      BarcodeFormat.upcE,
+    ],
   );
 
+  Timer? _presenceTimer;
   bool _saving = false;
   bool _changed = false;
   int _sessionScans = 0;
   late int _positionCount;
   late int _totalQuantity;
   String? _candidateBarcode;
+  String? _blockedBarcode;
   String? _lastBarcode;
   String? _message;
 
@@ -43,6 +60,20 @@ class _ScannerScreenState extends State<ScannerScreen> {
     super.initState();
     _positionCount = widget.initialPositionCount;
     _totalQuantity = widget.initialTotalQuantity;
+  }
+
+  void _armPresenceTimer() {
+    _presenceTimer?.cancel();
+    _presenceTimer = Timer(_candidateHold, () {
+      if (!mounted) return;
+      setState(() {
+        _candidateBarcode = null;
+        _blockedBarcode = null;
+        if (!_saving) {
+          _message = 'Поместите код внутрь белой рамки.';
+        }
+      });
+    });
   }
 
   void _handleDetection(BarcodeCapture capture) {
@@ -59,6 +90,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
     if (rawValue == null) return;
 
     final canonicalBarcode = BarcodeNormalizer.normalize(rawValue);
+    if (canonicalBarcode.isEmpty) return;
+
+    _armPresenceTimer();
+
+    // После успешного сканирования тот же физический код должен сначала
+    // исчезнуть из рамки. Это защищает от повторного начисления одной упаковки.
+    if (canonicalBarcode == _blockedBarcode) return;
     if (!mounted || canonicalBarcode == _candidateBarcode) return;
 
     setState(() {
@@ -69,16 +107,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   Future<void> _commitCandidate() async {
     final barcode = _candidateBarcode;
-    if (_saving || barcode == null) {
-      if (mounted) {
-        setState(() {
-          _message = 'Поместите штрихкод внутрь белой рамки.';
-        });
-      }
-      return;
-    }
+    if (_saving || barcode == null) return;
 
-    _saving = true;
+    setState(() {
+      _saving = true;
+      _message = 'Сохраняю…';
+    });
+
     try {
       await widget.repository.addOrIncrementItem(
         inventoryId: widget.inventoryId,
@@ -89,8 +124,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
       if (!mounted) return;
 
       final total = items.fold<int>(0, (sum, item) => sum + item.quantity);
-      HapticFeedback.heavyImpact();
+
+      // Звуковой и тактильный отклик должен быть заметен даже при быстром счёте.
       await SystemSound.play(SystemSoundType.alert);
+      await HapticFeedback.heavyImpact();
 
       setState(() {
         _changed = true;
@@ -98,24 +135,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
         _positionCount = items.length;
         _totalQuantity = total;
         _lastBarcode = barcode;
+        _blockedBarcode = barcode;
         _candidateBarcode = null;
-        _message = 'Добавлено +1. Наведите следующий товар.';
+        _message = 'Добавлено +1. Уберите товар из рамки.';
+        _saving = false;
       });
-
-      // Короткая пауза не даёт камере немедленно вернуть тот же кадр как
-      // новый кандидат. Повторное добавление возможно только новым нажатием.
-      await _controller.stop();
-      await Future<void>.delayed(const Duration(milliseconds: 350));
-      if (mounted) {
-        await _controller.start();
-      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
+        _saving = false;
         _message = 'Не удалось сохранить сканирование';
       });
-    } finally {
-      _saving = false;
     }
   }
 
@@ -126,6 +156,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   @override
   void dispose() {
+    _presenceTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -160,7 +191,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         ),
         body: LayoutBuilder(
           builder: (context, constraints) {
-            const frameWidth = 300.0;
+            final frameWidth = (constraints.maxWidth - 48).clamp(260.0, 340.0);
             const frameHeight = 170.0;
             final scanWindow = Rect.fromCenter(
               center: Offset(constraints.maxWidth / 2, constraints.maxHeight / 2),
@@ -179,13 +210,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 ),
                 IgnorePointer(
                   child: Center(
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
                       width: frameWidth,
                       height: frameHeight,
                       decoration: BoxDecoration(
                         border: Border.all(
-                          color: _candidateBarcode == null ? Colors.white : Colors.greenAccent,
-                          width: 3,
+                          color: _candidateBarcode == null
+                              ? Colors.white
+                              : Colors.greenAccent,
+                          width: 4,
                         ),
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -220,7 +254,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                _candidateBarcode ?? _lastBarcode ?? 'Наведите код внутрь белой рамки',
+                                _candidateBarcode ??
+                                    _lastBarcode ??
+                                    'Наведите код внутрь белой рамки',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   color: Colors.white,
@@ -230,7 +266,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
                               ),
                               const SizedBox(height: 5),
                               Text(
-                                _message ?? 'Считывание происходит только внутри рамки и только после нажатия кнопки.',
+                                _message ??
+                                    'Кнопка активируется только пока код действительно находится в рамке.',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(color: Colors.white70),
                               ),
@@ -241,9 +278,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        height: 64,
+                        height: 68,
                         child: FilledButton.icon(
-                          onPressed: _saving ? null : _commitCandidate,
+                          onPressed: _saving || _candidateBarcode == null
+                              ? null
+                              : _commitCandidate,
                           icon: _saving
                               ? const SizedBox(
                                   width: 22,
@@ -253,7 +292,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
                               : const Icon(Icons.qr_code_scanner, size: 30),
                           label: Text(
                             _saving ? 'Сохраняю…' : 'СКАНИРОВАТЬ',
-                            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
