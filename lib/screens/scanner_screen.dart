@@ -38,7 +38,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       BarcodeFormat.dataMatrix,
       BarcodeFormat.ean13,
       BarcodeFormat.ean8,
-      BarcodeFormat.itf,
+      BarcodeFormat.itf14,
       BarcodeFormat.upcA,
       BarcodeFormat.upcE,
     ],
