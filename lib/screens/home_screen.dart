@@ -95,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Text('СкладСкан'),
             Text(
-              'Версия 0.1.1 · сборка 2',
+              'Версия 0.1.5 · сборка 6',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.normal),
             ),
           ],
