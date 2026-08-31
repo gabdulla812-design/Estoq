@@ -1,0 +1,48 @@
+name: Bootstrap Gradle Wrapper
+
+on:
+  push:
+    branches:
+      - skladscan-clean
+    paths:
+      - 'android/gradle/wrapper/gradle-wrapper.properties'
+      - 'android/.gitignore'
+      - '.github/workflows/bootstrap-gradle-wrapper.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: skladscan-clean
+
+      - name: Download official Gradle wrapper files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p android/gradle/wrapper
+          curl -fsSL https://raw.githubusercontent.com/gradle/gradle/v8.14.3/gradlew -o android/gradlew
+          curl -fsSL https://raw.githubusercontent.com/gradle/gradle/v8.14.3/gradlew.bat -o android/gradlew.bat
+          curl -fsSL https://raw.githubusercontent.com/gradle/gradle/v8.14.3/gradle/wrapper/gradle-wrapper.jar -o android/gradle/wrapper/gradle-wrapper.jar
+          chmod +x android/gradlew
+
+      - name: Commit wrapper files when missing or changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- android/gradlew android/gradlew.bat android/gradle/wrapper/gradle-wrapper.jar && \
+             git ls-files --error-unmatch android/gradlew android/gradlew.bat android/gradle/wrapper/gradle-wrapper.jar >/dev/null 2>&1; then
+            echo "Gradle wrapper files are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/gradlew android/gradlew.bat android/gradle/wrapper/gradle-wrapper.jar
+          git commit -m "build: add official Gradle wrapper files"
+          git push origin HEAD:skladscan-clean

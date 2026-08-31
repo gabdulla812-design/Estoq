@@ -1,37 +1,29 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
-import 'package:flutter/services.dart';
-import 'home.dart';
-import 'data.dart';
-// import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
 
-// Main
-Future<void> main() async {
-  // Lock portrait
-  WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  // Load user data
-  WidgetsFlutterBinding.ensureInitialized();
-  Sessions sessions = Sessions();
-  await sessions.loadFromDisk();
-  UserSettings settings = await loadUserSettings();
+import 'data/inventory_repository.dart';
+import 'screens/home_screen.dart';
 
-  runApp(Home(child: HomeScreen(), settings: settings, sessions: sessions));
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const SkladScanApp());
 }
 
-class Home extends InheritedWidget {
-  final Widget child;
-  final UserSettings settings;
-  final Sessions sessions;
-  Home({required this.child, required this.settings, required this.sessions})
-      : super(child: child);
-
-  static Home? of(BuildContext context) {
-    return (context.dependOnInheritedWidgetOfExactType<Home>());
-  }
+class SkladScanApp extends StatelessWidget {
+  const SkladScanApp({super.key});
 
   @override
-  bool updateShouldNotify(Home oldWidget) {
-    return true;
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'СкладСкан',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1565C0)),
+        useMaterial3: true,
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(),
+        ),
+      ),
+      home: HomeScreen(repository: InventoryRepository.instance),
+    );
   }
 }
